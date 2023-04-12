@@ -1,166 +1,133 @@
 package controllers
 
 import (
-	"Final_Project/configs"
+	"Final_Project/helpers"
 	"Final_Project/models"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
-	"net/http"
+	"gorm.io/gorm"
 	"strconv"
 )
 
-func DeletePhoto(c *gin.Context) {
-	db := configs.GetDB()
+func (h HttpServer) DeletePhoto(c *gin.Context) {
 	photoId, err := strconv.Atoi(c.Param("photo_id"))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":   err.Error(),
-			"message": "ID must be a number",
-		})
+		helpers.ResponseBadRequestWithMessage(c, err.Error(), "ID must be a number")
 		return
 	}
 
-	photo := models.Photo{}
+	err = h.app.DeletePhoto(uint(photoId))
 
-	err = db.First(&photo, photoId).Error
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-			"error":   err.Error(),
-			"message": "Photo not found",
-		})
-		return
+		if err == gorm.ErrRecordNotFound {
+			helpers.ResponseNotFound(c, err.Error())
+			return
+		} else {
+			helpers.ResponseError(c, err.Error())
+			return
+		}
 	}
 
-	err = db.Delete(&photo).Error
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"error":   err.Error(),
-			"message": "Failed to delete photo",
-		})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
+	helpers.ResponseOK(c, gin.H{
 		"message": "Photo successfully deleted",
 	})
 }
 
-func GetPhoto(c *gin.Context) {
-	db := configs.GetDB()
+func (h HttpServer) GetPhoto(c *gin.Context) {
 	photoId, err := strconv.Atoi(c.Param("photo_id"))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":   err.Error(),
-			"message": "ID must be a number",
-		})
+		helpers.ResponseBadRequestWithMessage(c, err.Error(), "ID must be a number")
 		return
 	}
 
-	photo := models.Photo{}
+	res, err := h.app.GetPhoto(uint(photoId))
 
-	err = db.Preload("User").Preload("Comments").First(&photo, photoId).Error
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-			"error":   err.Error(),
-			"message": "Photo not found",
-		})
-		return
+		if err == gorm.ErrRecordNotFound {
+			helpers.ResponseNotFound(c, err.Error())
+			return
+		} else {
+			helpers.ResponseError(c, err.Error())
+			return
+		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	helpers.ResponseOK(c, gin.H{
 		"message": "Photo successfully retrieved",
-		"data":    photo,
+		"data":    res,
 	})
 }
 
-func UpdatePhoto(c *gin.Context) {
-	db := configs.GetDB()
+func (h HttpServer) UpdatePhoto(c *gin.Context) {
 	photoId, err := strconv.Atoi(c.Param("photo_id"))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":   err.Error(),
-			"message": "ID must be a number",
-		})
+		helpers.ResponseBadRequestWithMessage(c, err.Error(), "ID must be a number")
 		return
 	}
 
 	photo := models.Photo{}
-
-	err = db.First(&photo, photoId).Error
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-			"error":   err.Error(),
-			"message": "Photo not found",
-		})
-		return
-	}
+	photo.ID = uint(photoId)
+	photo.UserID = uint(c.MustGet("userData").(jwt.MapClaims)["id"].(float64))
 
 	err = c.ShouldBindJSON(&photo)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":   err.Error(),
-			"message": "Bad Request",
-		})
+		helpers.ResponseBadRequest(c, err.Error())
 		return
 	}
 
-	err = db.Save(&photo).Error
+	res, err := h.app.UpdatePhoto(photo)
+
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"error":   err.Error(),
-			"message": "Internal Server Error",
-		})
+		if err == gorm.ErrRecordNotFound {
+			helpers.ResponseNotFound(c, err.Error())
+			return
+		} else {
+			helpers.ResponseError(c, err.Error())
+			return
+		}
+	}
+
+	helpers.ResponseOK(c, gin.H{
+		"message": "Photo successfully updated",
+		"data":    res,
+	})
+}
+
+func (h HttpServer) GetAllPhotos(c *gin.Context) {
+	var photos []models.Photo
+	res, err := h.app.GetAllPhotos(photos)
+
+	if err != nil {
+		helpers.ResponseError(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Photo successfully updated",
-		"data":    photo,
-	})
-
-}
-
-func GetAllPhotos(c *gin.Context) {
-	db := configs.GetDB()
-	var photos []models.Photo
-
-	db.Find(&photos)
-
-	c.JSON(http.StatusOK, gin.H{
+	helpers.ResponseOK(c, gin.H{
 		"message": "All photos successfully retrieved",
-		"data":    photos,
+		"data":    res,
 	})
 }
 
-func CreatePhoto(c *gin.Context) {
-	db := configs.GetDB()
-	userData := c.MustGet("userData").(jwt.MapClaims)
-
+func (h HttpServer) CreatePhoto(c *gin.Context) {
 	photo := models.Photo{}
+	userData := c.MustGet("userData").(jwt.MapClaims)
 	userID := uint(userData["id"].(float64))
+	photo.UserID = userID
 
 	err := c.ShouldBindJSON(&photo)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":   err.Error(),
-			"message": "Bad Request",
-		})
+		helpers.ResponseBadRequest(c, err.Error())
 		return
 	}
+	res, err := h.app.CreatePhoto(photo)
 
-	photo.UserID = userID
-
-	err = db.Debug().Create(&photo).Error
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":   err.Error(),
-			"message": "Bad Request",
-		})
+		helpers.ResponseError(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
+	helpers.ResponseCreated(c, gin.H{
 		"message": "Photo successfully created",
-		"data":    photo,
+		"data":    res,
 	})
 }

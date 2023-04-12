@@ -1,177 +1,117 @@
 package controllers
 
 import (
-	"Final_Project/configs"
+	"Final_Project/helpers"
 	"Final_Project/models"
-	"errors"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"net/http"
+	"strconv"
 )
 
-func GetAllSocialMedia(c *gin.Context) {
-	db := configs.GetDB()
+func (h HttpServer) GetAllSocialMedia(c *gin.Context) {
 	var socialMedia []models.SocialMedia
 
-	db.Find(&socialMedia)
+	res, err := h.app.GetAllSocialMedia(socialMedia)
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "All social media successfully retrieved",
-		"data":    socialMedia,
-	})
-}
-
-func GetSocialMedia(c *gin.Context) {
-	db := configs.GetDB()
-	var socialMedia models.SocialMedia
-
-	if err := db.Preload("User").First(&socialMedia).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-				"error":   err.Error(),
-				"message": "Social media not found",
-			})
-			return
-		} else {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"error":   err.Error(),
-				"message": "Bad Request",
-			})
-			return
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Social media successfully retrieved",
-		"data":    socialMedia,
-	})
-}
-
-func DeleteSocialMedia(c *gin.Context) {
-	db := configs.GetDB()
-	var socialMedia models.SocialMedia
-
-	if err := db.First(&socialMedia).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-				"error":   err.Error(),
-				"message": "Social media not found",
-			})
-			return
-		} else {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"error":   err.Error(),
-				"message": "Bad Request",
-			})
-			return
-		}
-	}
-
-	if err := db.Delete(&socialMedia).Error; err != nil {
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"error":   err.Error(),
-			"message": "Failed to delete social media",
-		})
+	if err != nil {
+		helpers.ResponseError(c, err.Error())
 		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
+		"message": "All social media successfully retrieved",
+		"data":    res,
+	})
+}
+
+func (h HttpServer) GetSocialMedia(c *gin.Context) {
+	socialMediaId, err := strconv.Atoi(c.Param("social_media_id"))
+	if err != nil {
+		helpers.ResponseBadRequestWithMessage(c, err.Error(), "ID must be a number")
+		return
+	}
+	res, err := h.app.GetSocialMedia(uint(socialMediaId))
+
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			helpers.ResponseNotFound(c, err.Error())
+			return
+		} else {
+			helpers.ResponseError(c, err.Error())
+			return
+		}
+	}
+
+	helpers.ResponseOK(c, gin.H{
+		"message": "Social media successfully retrieved",
+		"data":    res,
+	})
+}
+
+func (h HttpServer) DeleteSocialMedia(c *gin.Context) {
+
+	var socialMedia models.SocialMedia
+	socialMedia.UserID = uint(c.MustGet("userData").(jwt.MapClaims)["id"].(float64))
+
+	err := h.app.DeleteSocialMedia(socialMedia)
+
+	if err != nil {
+		helpers.ResponseError(c, err.Error())
+		return
+	}
+
+	helpers.ResponseOK(c, gin.H{
 		"message": "Social media successfully deleted",
 	})
 }
 
-func UpdateSocialMedia(c *gin.Context) {
-	db := configs.GetDB()
-	userData := c.MustGet("userData").(jwt.MapClaims)
-	socialMedia := models.SocialMedia{}
-
-	if err := db.First(&socialMedia, "user_id = ?", uint(userData["id"].(float64))).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-				"error":   err.Error(),
-				"message": "Social media not found",
-			})
-			return
-		} else {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"error":   err.Error(),
-				"message": "Bad Request",
-			})
-			return
-		}
-	}
+func (h HttpServer) UpdateSocialMedia(c *gin.Context) {
+	var socialMedia models.SocialMedia
+	socialMedia.UserID = uint(c.MustGet("userData").(jwt.MapClaims)["id"].(float64))
 
 	err := c.ShouldBindJSON(&socialMedia)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":   err.Error(),
-			"message": "Bad Request",
-		})
+		helpers.ResponseBadRequest(c, err.Error())
 		return
 	}
 
-	socialMedia.UserID = uint(userData["id"].(float64))
+	res, err := h.app.UpdateSocialMedia(socialMedia)
 
-	err = db.Save(&socialMedia).Error
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"error":   err.Error(),
-			"message": "Failed to update social media",
-		})
+		helpers.ResponseError(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	helpers.ResponseOK(c, gin.H{
 		"message": "Social media successfully updated",
-		"data":    socialMedia,
+		"data":    res,
 	})
 }
 
-func CreateSocialMedia(c *gin.Context) {
-	db := configs.GetDB()
-	userData := c.MustGet("userData").(jwt.MapClaims)
+func (h HttpServer) CreateSocialMedia(c *gin.Context) {
 	socialMedia := models.SocialMedia{}
+	userData := c.MustGet("userData").(jwt.MapClaims)
+	userID := uint(userData["id"].(float64))
+	socialMedia.UserID = userID
 
 	err := c.ShouldBindJSON(&socialMedia)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":   err.Error(),
-			"message": "Bad Request",
-		})
+		helpers.ResponseBadRequest(c, err.Error())
 		return
 	}
 
-	socialMedia.UserID = uint(userData["id"].(float64))
+	res, err := h.app.CreateSocialMedia(socialMedia)
 
-	if err := db.First(&socialMedia, "user_id = ?", socialMedia.UserID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			err = db.Create(&socialMedia).Error
-			if err != nil {
-				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-					"error":   err.Error(),
-					"message": "Bad Request",
-				})
-				return
-			}
-			c.JSON(http.StatusCreated, gin.H{
-				"message": "Social media successfully created",
-				"data":    socialMedia,
-			})
-			return
-		} else {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"error":   err.Error(),
-				"message": "Bad Request",
-			})
-			return
-		}
-	} else {
-		c.AbortWithStatusJSON(http.StatusCreated, gin.H{
-			"message": "Social media already exists",
-			"data":    socialMedia,
-		})
+	if err != nil {
+		helpers.ResponseError(c, err.Error())
 		return
 	}
+
+	helpers.ResponseCreated(c, gin.H{
+		"message": "Social media successfully created",
+		"data":    res,
+	})
 
 }

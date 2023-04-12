@@ -2,6 +2,7 @@ package middlewares
 
 import (
 	"Final_Project/configs"
+	"Final_Project/helpers"
 	"Final_Project/models"
 	"errors"
 	"github.com/dgrijalva/jwt-go"
@@ -16,10 +17,7 @@ func PhotoAuth() gin.HandlerFunc {
 		db := configs.GetDB()
 		photoId, err := strconv.Atoi(c.Param("photo_id"))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"error":   err.Error(),
-				"message": "ID must be a number",
-			})
+			helpers.ResponseBadRequestWithMessage(c, err.Error(), "ID must be a number")
 			return
 		}
 
@@ -29,11 +27,7 @@ func PhotoAuth() gin.HandlerFunc {
 
 		err = db.Select("user_id").First(&product, uint(photoId)).Error
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-				"error":   err.Error(),
-				"message": "Photo not found",
-			})
-
+			helpers.ResponseNotFound(c, err.Error())
 			return
 		}
 		println(product.UserID, userID)
@@ -55,10 +49,7 @@ func CommentAuth() gin.HandlerFunc {
 		db := configs.GetDB()
 		commentId, err := strconv.Atoi(c.Param("comment_id"))
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"error":   err.Error(),
-				"message": "ID must be a number",
-			})
+			helpers.ResponseBadRequestWithMessage(c, err.Error(), "ID must be a number")
 			return
 		}
 

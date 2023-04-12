@@ -6,9 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func ApiInit() *gin.Engine {
-	router := gin.Default()
-
+func ApiInit(router *gin.Engine, server controllers.HttpServer) {
 	authRouter := router.Group("/auth")
 	{
 		authRouter.POST("/register", controllers.Register)
@@ -18,31 +16,30 @@ func ApiInit() *gin.Engine {
 	photoRouter := router.Group("/photos")
 	{
 		photoRouter.Use(middlewares.Authentication())
-		photoRouter.GET("/", controllers.GetAllPhotos)
-		photoRouter.POST("/", controllers.CreatePhoto)
-		photoRouter.POST("/:photo_id/comment", controllers.CreateComment)
-		photoRouter.GET("/:photo_id", controllers.GetPhoto)
-		photoRouter.PUT("/:photo_id", middlewares.PhotoAuth(), controllers.UpdatePhoto)
-		photoRouter.DELETE("/:photo_id", middlewares.PhotoAuth(), controllers.DeletePhoto)
+		photoRouter.GET("/", server.GetAllPhotos)
+		photoRouter.POST("/", server.CreatePhoto)
+		photoRouter.POST("/:photo_id/comment", server.CreateComment)
+		photoRouter.GET("/:photo_id", server.GetPhoto)
+		photoRouter.PUT("/:photo_id", middlewares.PhotoAuth(), server.UpdatePhoto)
+		photoRouter.DELETE("/:photo_id", middlewares.PhotoAuth(), server.DeletePhoto)
 	}
 
 	commentRouter := router.Group("/comments")
 	{
 		commentRouter.Use(middlewares.Authentication())
-		commentRouter.GET("/", controllers.GetAllComments)
-		commentRouter.GET("/:comment_id", controllers.GetComment)
-		commentRouter.DELETE("/:comment_id", middlewares.CommentAuth(), controllers.DeleteComment)
-		commentRouter.PUT("/:comment_id", middlewares.CommentAuth(), controllers.UpdateComment)
+		commentRouter.GET("/", server.GetAllComments)
+		commentRouter.GET("/:comment_id", server.GetComment)
+		commentRouter.DELETE("/:comment_id", middlewares.CommentAuth(), server.DeleteComment)
+		commentRouter.PUT("/:comment_id", middlewares.CommentAuth(), server.UpdateComment)
 	}
 
 	socialMediaRouter := router.Group("/social-media")
 	{
 		socialMediaRouter.Use(middlewares.Authentication())
-		socialMediaRouter.GET("/", controllers.GetAllSocialMedia)
-		socialMediaRouter.POST("/", controllers.CreateSocialMedia)
-		socialMediaRouter.GET("/:social_media_id", controllers.GetSocialMedia)
-		socialMediaRouter.PUT("/", middlewares.SocialMediaAuth(), controllers.UpdateSocialMedia)
-		socialMediaRouter.DELETE("/", middlewares.SocialMediaAuth(), controllers.DeleteSocialMedia)
+		socialMediaRouter.GET("/", server.GetAllSocialMedia)
+		socialMediaRouter.POST("/", server.CreateSocialMedia)
+		socialMediaRouter.GET("/:social_media_id", server.GetSocialMedia)
+		socialMediaRouter.PUT("/", middlewares.SocialMediaAuth(), server.UpdateSocialMedia)
+		socialMediaRouter.DELETE("/", middlewares.SocialMediaAuth(), server.DeleteSocialMedia)
 	}
-	return router
 }

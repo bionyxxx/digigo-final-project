@@ -58,8 +58,7 @@ func InitDatabase() error {
 }
 
 func (p *Gorm) OpenConnection() error {
-	GORM = new(GormDb)
-	config := fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=disable", HOST, PORT, USER, DBNAME, PASSWORD)
+	config := fmt.Sprintf("host=%s port=%s user=%s dbname=%s password=%s sslmode=disable", p.Address, p.Port, p.Username, p.Database, p.Password)
 
 	DB, err = gorm.Open(postgres.Open(config), &gorm.Config{})
 
@@ -67,7 +66,9 @@ func (p *Gorm) OpenConnection() error {
 		log.Fatal("error connecting to db", err)
 	}
 
-	err := DB.AutoMigrate(&models.User{}, &models.Photo{}, &models.Comment{}, &models.SocialMedia{})
+	p.DB = DB
+
+	err = p.DB.Debug().AutoMigrate(&models.User{}, &models.Photo{}, &models.Comment{}, &models.SocialMedia{})
 	if err != nil {
 		panic(err)
 	}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"Final_Project/configs"
-	"Final_Project/routes"
 	"github.com/joho/godotenv"
 )
 
@@ -19,9 +18,5 @@ func init() {
 }
 
 func main() {
-	var PORT = ":3000"
-	err := routes.ApiInit().Run(PORT)
-	if err != nil {
-		panic(err)
-	}
+	StartApp()
 }

@@ -2,195 +2,151 @@ package controllers
 
 import (
 	"Final_Project/configs"
+	"Final_Project/helpers"
 	"Final_Project/models"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	"net/http"
 	"strconv"
 )
 
-func GetAllComments(c *gin.Context) {
-	db := configs.GetDB()
+func (h HttpServer) GetAllComments(c *gin.Context) {
 	var comments []models.Comment
 
-	db.Find(&comments)
+	res, err := h.app.GetAllComments(comments)
 
-	c.JSON(http.StatusOK, gin.H{
+	if err != nil {
+		helpers.ResponseError(c, err.Error())
+		return
+	}
+
+	helpers.ResponseOK(c, gin.H{
 		"message": "All photos successfully retrieved",
-		"data":    comments,
+		"data":    res,
 	})
 }
 
-func UpdateComment(c *gin.Context) {
-	db := configs.GetDB()
+func (h HttpServer) UpdateComment(c *gin.Context) {
 	commentId, err := strconv.Atoi(c.Param("comment_id"))
+
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":   err.Error(),
-			"message": "ID must be a number",
-		})
+		helpers.ResponseBadRequestWithMessage(c, err.Error(), "ID must be a number")
 		return
 	}
 
 	var comment models.Comment
-
-	err = db.First(&comment, commentId).Error
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-			"error":   err.Error(),
-			"message": "Comment not found",
-		})
-		return
-	}
+	comment.ID = uint(commentId)
+	comment.UserID = uint(c.MustGet("userData").(jwt.MapClaims)["id"].(float64))
 
 	err = c.ShouldBindJSON(&comment)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":   err.Error(),
-			"message": "Bad Request",
-		})
+		helpers.ResponseBadRequest(c, err.Error())
 		return
 	}
 
-	err = db.Save(&comment).Error
+	res, err := h.app.UpdateComment(comment)
+
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"error":   err.Error(),
-			"message": "Failed to update comment",
-		})
-		return
+		if err == gorm.ErrRecordNotFound {
+			helpers.ResponseNotFound(c, err.Error())
+			return
+		} else {
+			helpers.ResponseError(c, err.Error())
+			return
+		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	helpers.ResponseOK(c, gin.H{
 		"message": "Comment successfully updated",
-		"data":    comment,
+		"data":    res,
 	})
 }
 
-func GetComment(c *gin.Context) {
-	db := configs.GetDB()
+func (h HttpServer) GetComment(c *gin.Context) {
 	commentId, err := strconv.Atoi(c.Param("comment_id"))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":   err.Error(),
-			"message": "ID must be a number",
-		})
+		helpers.ResponseBadRequestWithMessage(c, err.Error(), "ID must be a number")
 		return
 	}
 
-	var comment models.Comment
+	res, err := h.app.GetComment(uint(commentId))
 
-	err = db.Preload("Photo").Preload("User").First(&comment, commentId).Error
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-			"error":   err.Error(),
-			"message": "Comment not found",
-		})
-		return
+		if err == gorm.ErrRecordNotFound {
+			helpers.ResponseNotFound(c, err.Error())
+			return
+		} else {
+			helpers.ResponseError(c, err.Error())
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Comment successfully retrieved",
-		"data":    comment,
+		"data":    res,
 	})
 }
 
-func DeleteComment(c *gin.Context) {
-	db := configs.GetDB()
+func (h HttpServer) DeleteComment(c *gin.Context) {
 	commentId, err := strconv.Atoi(c.Param("comment_id"))
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":   err.Error(),
-			"message": "ID must be a number",
-		})
+		helpers.ResponseBadRequestWithMessage(c, err.Error(), "ID must be a number")
 		return
 	}
 
-	comment := models.Comment{}
+	err = h.app.DeleteComment(uint(commentId))
 
-	userData := c.MustGet("userData").(jwt.MapClaims)
-
-	if userData["role"] == "admin" {
-		err = db.First(&comment, commentId).Error
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-				"error":   err.Error(),
-				"message": "Comment not found",
-			})
-			return
-		}
-	} else {
-		err = db.Where("user_id = ?", userData["id"]).First(&comment, commentId).Error
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-				"error":   err.Error(),
-				"message": "Comment not found",
-			})
-			return
-		}
-	}
-
-	err = db.Delete(&comment).Error
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"error":   err.Error(),
-			"message": "Failed to delete comment",
-		})
-		return
+		if err == gorm.ErrRecordNotFound {
+			helpers.ResponseNotFound(c, err.Error())
+			return
+		} else {
+			helpers.ResponseError(c, err.Error())
+			return
+		}
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	helpers.ResponseOK(c, gin.H{
 		"message": "Comment successfully deleted",
 	})
 }
 
-func CreateComment(c *gin.Context) {
-	db := configs.GetDB()
+func (h HttpServer) CreateComment(c *gin.Context) {
 	userData := c.MustGet("userData").(jwt.MapClaims)
 	photoId, err := strconv.Atoi(c.Param("photo_id"))
 
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":   err.Error(),
-			"message": "ID must be a number",
-		})
-		return
-	}
-	photo := models.Photo{}
-	err = db.Preload("User").First(&photo, photoId).Error
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-			"error":   err.Error(),
-			"message": "Photo not found",
-		})
+		helpers.ResponseBadRequestWithMessage(c, err.Error(), "ID must be a number")
 		return
 	}
 
 	var comment models.Comment
-
-	err = c.ShouldBindJSON(&comment)
-	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":   err.Error(),
-			"message": "Bad Request",
-		})
-		return
-	}
-
 	comment.UserID = uint(userData["id"].(float64))
 	comment.PhotoID = uint(photoId)
 
-	err = db.Preload("Photo").Create(&comment).Error
+	err = c.ShouldBindJSON(&comment)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error":   err.Error(),
-			"message": "Bad Request",
-		})
+		helpers.ResponseBadRequest(c, err.Error())
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
+	var photo = models.Photo{}
+	err = configs.DB.First(&photo, photoId).Error
+	if err != nil {
+		helpers.ResponseNotFound(c, err.Error())
+		return
+	}
+
+	res, err := h.app.CreateComment(comment, uint(photoId))
+
+	if err != nil {
+		helpers.ResponseError(c, err.Error())
+		return
+	}
+
+	helpers.ResponseCreated(c, gin.H{
 		"message": "Comment successfully created",
-		"data":    comment,
+		"data":    res,
 	})
 }
