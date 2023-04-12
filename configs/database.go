@@ -23,14 +23,9 @@ type GormDb struct {
 }
 
 var (
-	GORM     *GormDb
-	HOST     = "localhost"
-	PORT     = "5432"
-	USER     = "postgres"
-	PASSWORD = "postgres"
-	DBNAME   = "final_project"
-	DB       *gorm.DB
-	err      error
+	GORM *GormDb
+	DB   *gorm.DB
+	err  error
 )
 
 func GetDB() *gorm.DB {

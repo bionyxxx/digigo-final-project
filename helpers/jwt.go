@@ -37,7 +37,6 @@ func VerifyToken(c *gin.Context) (interface{}, error) { // return data user
 		return nil, errResp
 	}
 
-	// Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImFuYW5nQG1haWwuY29tIiwiaWQiOjF9.WOWONxV_iXvbXxByQXG0J4Lk0g81cOBkd5yp5mE
 	stringToken := strings.Split(headerToken, " ")[1]
 
 	token, _ := jwt.Parse(stringToken, func(t *jwt.Token) (interface{}, error) {
