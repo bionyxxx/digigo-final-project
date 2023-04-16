@@ -105,6 +105,13 @@ func (h HttpServer) CreateSocialMedia(c *gin.Context) {
 	res, err := h.app.CreateSocialMedia(socialMedia)
 
 	if err != nil {
+		if err.Error() == "already" {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+				"error":   err.Error(),
+				"message": "Social media already exists",
+			})
+			return
+		}
 		helpers.ResponseError(c, err.Error())
 		return
 	}

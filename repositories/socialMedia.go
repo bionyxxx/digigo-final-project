@@ -55,7 +55,7 @@ func (r Repo) CreateSocialMedia(in models.SocialMedia) (res models.SocialMedia, 
 			}
 		}
 	}
-	return res, nil
+	return res, errors.New("already")
 }
 
 func (r Repo) GetAllSocialMedia(in []models.SocialMedia) (res []models.SocialMedia, err error) {

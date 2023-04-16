@@ -2,8 +2,9 @@ package middlewares
 
 import (
 	"Final_Project/helpers"
-	"github.com/gin-gonic/gin"
 	"net/http"
+
+	"github.com/gin-gonic/gin"
 )
 
 func Authentication() gin.HandlerFunc {
